@@ -1,17 +1,21 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/Distributed-filestorage/p2p"
 )
 
 func main() {
-	tr := p2p.NewTCPTransport(":3000")
+	tcpOpts := p2p.TCPTransportOption{
+		ListenAddress: ":3000",
+		HandshakeFunc: p2p.NOPHandshakeFunc,
+		Decoder:       &p2p.DefaultDecoder{},
+	}
+	tr := p2p.NewTCPTransport(tcpOpts)
 
 	if err := tr.ListenAndAccept(); err != nil {
-		log.Fatalf(fmt.Sprintf("Error starting TCP transport: %s\n", err))
+		log.Fatal(err)
 	}
 	select {}
 }
