@@ -3,7 +3,6 @@ package p2p
 import (
 	"fmt"
 	"net"
-	"sync"
 )
 
 type TCPPeer struct {
@@ -23,19 +22,31 @@ type TCPTransportOption struct {
 	ListenAddress string
 	HandshakeFunc HandShakeFunc
 	Decoder       Decoder
+	OnPeer        func(Peer) error
 }
 
 type TCPTransport struct {
 	TCPTransportOption
 	listner net.Listener
-	mu      sync.RWMutex
-	peers   map[string]Peer
+	rpcChan chan RPC
 }
 
 func NewTCPTransport(opts TCPTransportOption) *TCPTransport {
 	return &TCPTransport{
 		TCPTransportOption: opts,
+		rpcChan:            make(chan RPC),
 	}
+}
+
+func (p *TCPPeer) Close() error {
+	err := p.conn.Close()
+	return err
+}
+
+// Consume implements the Transport interface and returns a channel of RPC messages recieved from peers. It allows the application to consume incoming RPC messages.
+func (t *TCPTransport) Consume() <-chan RPC {
+	return t.rpcChan
+
 }
 
 func (t *TCPTransport) ListenAndAccept() error {
@@ -68,18 +79,31 @@ type Temp struct{}
 
 func (t *TCPTransport) handleConn(conn net.Conn) {
 	peer := NewPeer(conn, true)
-
-	if err := t.HandshakeFunc(peer); err != nil {
-		fmt.Printf("Handshake error: %s\n", err)
+	var err error
+	defer func() {
+		fmt.Printf("Dropping Peer connection %s\n", err)
 		conn.Close()
+	}()
+	if err := t.HandshakeFunc(peer); err != nil {
 		return
 	}
-	msg := &Message{}
-	for {
-		if err := t.Decoder.Decode(conn, msg); err != nil {
-			fmt.Printf("Error decoding message: %s\n", err)
-			continue
+
+	if t.OnPeer != nil {
+		err = t.OnPeer(peer)
+		if err != nil {
+			return
 		}
-		fmt.Printf("Received message: %+v\n", msg)
+	}
+	rpc := RPC{}
+	for {
+		err = t.Decoder.Decode(conn, &rpc)
+		if err != nil {
+			fmt.Printf("Error decoding RPC: %s\n", err)
+			return
+		}
+		rpc.From = conn.RemoteAddr()
+		// fmt.Printf("Recieved from %s\n", rpc.From)
+		// fmt.Printf("Message: %s\n", string(rpc.Payload))
+		t.rpcChan <- rpc
 	}
 }
