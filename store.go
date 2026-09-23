@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha1"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -55,6 +56,14 @@ func NewStore(opts StoreOpts) *Store {
 	}
 }
 
+func (p PathKey) FirstPathName() string {
+	paths := strings.Split(p.PathName, "/")
+	if len(paths) == 0 {
+		panic("PathName is empty")
+	}
+	return paths[0]
+}
+
 func (s *Store) Read(key string) (io.Reader, error) {
 	f, err := s.readStream(key)
 	if err != nil {
@@ -68,7 +77,7 @@ func (s *Store) Read(key string) (io.Reader, error) {
 		return nil, err
 	}
 	return buf, nil
-}			
+}
 
 func (s *Store) readStream(key string) (io.ReadCloser, error) {
 	path := s.PathTransformFunc(key)
@@ -96,5 +105,17 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 	}
 	log.Printf("Wrote %d bytes to %s", n, pathAndFilename)
 
+	return nil
+}
+
+func (s *Store) Delete(key string) error {
+	path := s.PathTransformFunc(key)
+	fullPath := path.FullPath()
+
+	if err := os.RemoveAll(path.FirstPathName()); err != nil {
+		return err
+	}
+
+	fmt.Printf("Deleted file: %s\n", fullPath)
 	return nil
 }
