@@ -14,7 +14,7 @@ func TestTCPTransport(t *testing.T) {
 	}
 	tr := NewTCPTransport(opts)
 
-	assert.Equal(t, tr.ListenAddress, ":3000")
+	assert.Equal(t, tr.ListenAddress, "localhost:3000")
 
 	//server
 	// tr.listner.Accept()
