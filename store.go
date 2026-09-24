@@ -12,6 +12,8 @@ import (
 	"strings"
 )
 
+const defaultRoot = "storeGo"
+
 func CASPathTransformFunc(key string) PathKey {
 	hash := sha1.Sum([]byte(key))
 	hashStr := hex.EncodeToString(hash[:])
@@ -40,17 +42,27 @@ func (p PathKey) FullPath() string {
 
 type PathTransformFunc func(string) PathKey
 type StoreOpts struct {
+	root              string //folder name of the root directory where the files will be stored
 	PathTransformFunc PathTransformFunc
 }
 type Store struct {
 	StoreOpts
 }
 
-var DefaultPathTransform = func(key string) string {
-	return key
+var DefaultPathTransform = func(key string) PathKey {
+	return PathKey{
+		PathName: key,
+		Original: key,
+	}
 }
 
 func NewStore(opts StoreOpts) *Store {
+	if opts.PathTransformFunc == nil {
+		opts.PathTransformFunc = DefaultPathTransform
+	}
+	if len(opts.root) == 0 {
+		opts.root = defaultRoot
+	}
 	return &Store{
 		StoreOpts: opts,
 	}
@@ -80,18 +92,21 @@ func (s *Store) Read(key string) (io.Reader, error) {
 }
 
 func (s *Store) readStream(key string) (io.ReadCloser, error) {
+	return os.Open(s.fullPath(key))
+}
+
+func (s *Store) fullPath(key string) string {
 	path := s.PathTransformFunc(key)
-	return os.Open(path.FullPath())
+	return filepath.Join(s.root, path.FullPath())
 }
 
 func (s *Store) writeStream(key string, r io.Reader) error {
 	path := s.PathTransformFunc(key)
+	pathAndFilename := filepath.Join(s.root, path.FullPath())
 
-	if err := os.MkdirAll(path.PathName, os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Dir(pathAndFilename), os.ModePerm); err != nil {
 		return err
 	}
-
-	pathAndFilename := path.FullPath()
 
 	f, err := os.Create(pathAndFilename)
 	if err != nil {
@@ -110,9 +125,14 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 
 func (s *Store) Delete(key string) error {
 	path := s.PathTransformFunc(key)
-	fullPath := path.FullPath()
+	fullPath := s.fullPath(key)
 
-	if err := os.RemoveAll(path.FirstPathName()); err != nil {
+	if err := os.Remove(fullPath); err != nil {
+		return err
+	}
+
+	rootPath := filepath.Join(s.root, path.FirstPathName())
+	if err := os.RemoveAll(rootPath); err != nil {
 		return err
 	}
 
