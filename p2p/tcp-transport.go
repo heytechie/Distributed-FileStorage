@@ -1,7 +1,9 @@
 package p2p
 
 import (
+	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 )
 
@@ -48,6 +50,10 @@ func (t *TCPTransport) Consume() <-chan RPC {
 	return t.rpcChan
 
 }
+func (t *TCPTransport) Close() error {
+	slog.Info("Transport is not accepting connections")
+	return t.listner.Close()
+}
 
 func (t *TCPTransport) ListenAndAccept() error {
 	var err error
@@ -67,6 +73,9 @@ func (t *TCPTransport) startAcceptLoop() {
 
 		conn, err := t.listner.Accept()
 		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				return
+			}
 			fmt.Printf("TCP accept error: %s\n", err)
 			continue
 		}

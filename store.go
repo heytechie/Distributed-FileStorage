@@ -76,6 +76,15 @@ func (p PathKey) FirstPathName() string {
 	return paths[0]
 }
 
+func (s *Store) Has(key string) bool {
+	path := s.PathTransformFunc(key)
+	fullPathWithRoot := filepath.Join(s.root, path.FullPath())
+	if _, err := os.Stat(fullPathWithRoot); os.IsNotExist(err) {
+		return false
+	}
+	return true
+}
+
 func (s *Store) Read(key string) (io.Reader, error) {
 	f, err := s.readStream(key)
 	if err != nil {
@@ -137,5 +146,12 @@ func (s *Store) Delete(key string) error {
 	}
 
 	fmt.Printf("Deleted file: %s\n", fullPath)
+	return nil
+}
+
+func (s *Store) Cleanup() error {
+	if err := os.RemoveAll(s.root); err != nil {
+		return err
+	}
 	return nil
 }

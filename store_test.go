@@ -3,23 +3,24 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"testing"
-	"time"
 )
 
 func TestDeleteFunc(t *testing.T) {
-	opts := StoreOpts{
-		PathTransformFunc: CASPathTransformFunc,
-	}
-	s := NewStore(opts)
-	key := "myBestPic"
+	s := newStore()
+	defer func() {
+		// time.Sleep(2*time.Second)
+		tearDownStore(s, t)
+	}()
+	key := "heheheheh"
 	data := []byte("Some jpeg bytes")
 	if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
 		t.Error(err)
 	}
 
-	s.root = "storeGo"          // Set the root directory
-	time.Sleep(3 * time.Second) // Ensure the file is written before deletion
+	s.root = "storeGo" // Set the root directory
+	// time.Sleep(3 * time.Second) // Ensure the file is written before deletion
 	if err := s.Delete(key); err != nil {
 		t.Error(err)
 	}
@@ -46,22 +47,45 @@ func TestTransformFunc(t *testing.T) {
 	fmt.Println(pathKey)
 }
 func TestStore(t *testing.T) {
+
+	s := newStore()
+	defer tearDownStore(s, t) // Ensure cleanup after the test
+
+	for i := 0; i < 50000; i++ {
+		fmt.Println("file", i)
+		data := []byte(fmt.Sprintf("Some jpeg bytes %d", i))
+		key := fmt.Sprintf("fileassa%d", i)
+		if err := s.writeStream(key, bytes.NewReader(data)); err != nil {
+			t.Error(err)
+		}
+		if has := s.Has(key); !has {
+			t.Errorf("Expected file to exist, but it doesn't")
+		}
+		r, err := s.Read(key)
+		if err != nil {
+			t.Error(err)
+		}
+		buf, _ := io.ReadAll(r)
+
+		fmt.Println("Read data:", string(buf))
+		if string(buf) != string(data) {
+			t.Errorf("want %s have %s", data, buf)
+		}
+		s.Delete(key)
+	}
+
+}
+
+func newStore() *Store {
 	opts := StoreOpts{
 		PathTransformFunc: CASPathTransformFunc,
 	}
-	s := NewStore(opts)
-	data := []byte("Some jpeg bytes is one")
-	if err := s.writeStream("myBestPic", bytes.NewReader(data)); err != nil {
-		t.Error(err)
-	}
-	// r, err := s.Read("myBestPic")
-	// if err != nil {
-	// 	t.Error(err)
-	// }
-	// buf, _ := io.ReadAll(r)
+	return NewStore(opts)
+}
 
-	// fmt.Println("Read data:", string(buf))
-	// if string(buf) != string(data) {
-	// 	t.Errorf("want %s have %s", data, buf)
-	// }
+func tearDownStore(s *Store, t *testing.T) {
+	// Clean up the store directory after tests
+	if err := s.Cleanup(); err != nil {
+		t.Error("Error cleaning up store directory:", err)
+	}
 }
