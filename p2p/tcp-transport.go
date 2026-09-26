@@ -80,14 +80,23 @@ func (t *TCPTransport) startAcceptLoop() {
 			continue
 		}
 		fmt.Printf("Incomming new connection:%+v\n", conn)
-		go t.handleConn(conn)
+		go t.handleConn(conn, false)
 	}
+}
+
+func (t *TCPTransport) Dial(addr string) error {
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		return err
+	}
+	go t.handleConn(conn, true)
+	return nil
 }
 
 type Temp struct{}
 
-func (t *TCPTransport) handleConn(conn net.Conn) {
-	peer := NewPeer(conn, true)
+func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
+	peer := NewPeer(conn, outbound)
 	var err error
 	defer func() {
 		fmt.Printf("Dropping Peer connection %s\n", err)
