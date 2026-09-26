@@ -45,6 +45,10 @@ func (p *TCPPeer) Close() error {
 	return err
 }
 
+func (p *TCPPeer) RemoteAddr() net.Addr {
+	return p.conn.RemoteAddr()
+}
+
 // Consume implements the Transport interface and returns a channel of RPC messages recieved from peers. It allows the application to consume incoming RPC messages.
 func (t *TCPTransport) Consume() <-chan RPC {
 	return t.rpcChan
@@ -66,6 +70,11 @@ func (t *TCPTransport) ListenAndAccept() error {
 
 	return nil
 
+}
+
+func (p *TCPPeer) Send(data []byte) error {
+	_, err := p.conn.Write(data)
+	return err
 }
 
 func (t *TCPTransport) startAcceptLoop() {

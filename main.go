@@ -1,30 +1,22 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
 	"github.com/Distributed-filestorage/p2p"
 )
 
-func Onpeer(peer p2p.Peer) error {
-	peer.Close()
-	fmt.Printf("New Peer connected: %s\n", peer)
-	return nil
-}
 func main() {
 	tcpOpts3000 := p2p.TCPTransportOption{
 		ListenAddress: "localhost:3000",
 		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       &p2p.DefaultDecoder{},
-		// OnPeer:        Onpeer,
 	}
 	tcpOpts4000 := p2p.TCPTransportOption{
 		ListenAddress: "localhost:4000",
 		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       &p2p.DefaultDecoder{},
-		// OnPeer:        Onpeer,
 	}
 	transportOpts1 := p2p.NewTCPTransport(tcpOpts3000)
 	transportOpts2 := p2p.NewTCPTransport(tcpOpts4000)
@@ -42,6 +34,8 @@ func main() {
 	}
 	fileServer1 := NewFileServer(fileServerOpts1)
 	fileServer2 := NewFileServer(fileServerOpts2)
+	transportOpts1.OnPeer = fileServer1.OnPeer
+	transportOpts2.OnPeer = fileServer2.OnPeer
 	// go func() {
 	// 	time.Sleep(5 * time.Second)
 	// 	fmt.Println("Stopping server...")

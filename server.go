@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/Distributed-filestorage/p2p"
 )
@@ -15,8 +16,10 @@ type FileServerOpts struct {
 
 type FileServer struct {
 	FileServerOpts
-	store  *Store
-	quitch chan struct{}
+	store    *Store
+	quitch   chan struct{}
+	peer     map[string]p2p.Peer
+	peerLock sync.Mutex
 }
 
 func NewFileServer(opts FileServerOpts) *FileServer {
@@ -29,10 +32,21 @@ func NewFileServer(opts FileServerOpts) *FileServer {
 		FileServerOpts: opts,
 		store:          store,
 		quitch:         make(chan struct{}),
+		peer:           make(map[string]p2p.Peer),
 	}
 }
 func (s *FileServer) Stop() {
 	close(s.quitch)
+}
+
+func (s *FileServer) OnPeer(p p2p.Peer) error {
+	addr := p.RemoteAddr().String()
+	s.peerLock.Lock()
+	// defer s.peerLock.Unlock()
+	s.peer[addr] = p
+	s.peerLock.Unlock()
+	fmt.Printf("New Peer connected: %s\n", addr)
+	return p.Send([]byte("Helloooo"))
 }
 
 func (s *FileServer) bootstrapNetwork() {
