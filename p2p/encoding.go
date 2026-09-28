@@ -1,7 +1,9 @@
 package p2p
 
 import (
+	"encoding/binary"
 	"encoding/gob"
+	"fmt"
 	"io"
 )
 
@@ -17,13 +19,23 @@ func (d *GOBDecoder) Decode(r io.Reader, msg *RPC) error {
 
 type DefaultDecoder struct{}
 
+
+
+const maxMessageSize = 1 << 20 // 1 MB
+
 func (d *DefaultDecoder) Decode(r io.Reader, msg *RPC) error {
-	buff := make([]byte, 1024)
-	n, err := r.Read(buff)
-	if err != nil {
+	var size uint32
+	if err := binary.Read(r, binary.BigEndian, &size); err != nil {
 		return err
 	}
-	msg.Payload = buff[:n]
-	// fmt.Println(string(buff[:n]))
-	return nil
+
+	if size > maxMessageSize {
+		return fmt.Errorf("message too large %d bytes", size)
+	}
+
+	msg.Payload = make([]byte, size)
+
+	_, err := io.ReadFull(r, msg.Payload)
+	return err
+
 }

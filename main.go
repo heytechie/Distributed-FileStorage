@@ -1,11 +1,18 @@
 package main
 
 import (
+	"encoding/gob"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/Distributed-filestorage/p2p"
 )
+
+func init() {
+	gob.Register(MessageStoreFile{})
+	gob.Register(MessageFileContent{})
+}
 
 func main() {
 	tcpOpts3000 := p2p.TCPTransportOption{
@@ -34,6 +41,15 @@ func main() {
 	}
 	fileServer1 := NewFileServer(fileServerOpts1)
 	fileServer2 := NewFileServer(fileServerOpts2)
+	go func() {
+		time.Sleep(2 * time.Second)
+		if err := fileServer2.Store(
+			"hello.txt",
+			strings.NewReader("Hello from node 4000"),
+		); err != nil {
+			log.Printf("Store failed %v\n", err)
+		}
+	}()
 	transportOpts1.OnPeer = fileServer1.OnPeer
 	transportOpts2.OnPeer = fileServer2.OnPeer
 	// go func() {

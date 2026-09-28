@@ -1,6 +1,7 @@
 package p2p
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -75,6 +76,16 @@ func (t *TCPTransport) ListenAndAccept() error {
 func (p *TCPPeer) Send(data []byte) error {
 	_, err := p.conn.Write(data)
 	return err
+}
+
+func (p *TCPPeer) SendMessage(data []byte) error {
+	if len(data) > maxMessageSize {
+		return fmt.Errorf("message too large %d bytes", len(data))
+	}
+	bytes := make([]byte, 4+len(data))
+	binary.BigEndian.PutUint32(bytes[:4], uint32(len(data)))
+	copy(bytes[4:], data)
+	return p.Send(bytes)
 }
 
 func (t *TCPTransport) startAcceptLoop() {
