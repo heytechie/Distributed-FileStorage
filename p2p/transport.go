@@ -1,8 +1,12 @@
 package p2p
 
-import "net"
+import (
+	"io"
+	"net"
+)
 
 type Peer interface {
+	io.ReadWriter
 	Close() error
 	RemoteAddr() net.Addr
 	Send([]byte) error

@@ -79,13 +79,19 @@ func (p *TCPPeer) Send(data []byte) error {
 }
 
 func (p *TCPPeer) SendMessage(data []byte) error {
-	if len(data) > maxMessageSize {
-		return fmt.Errorf("message too large %d bytes", len(data))
-	}
-	bytes := make([]byte, 4+len(data))
-	binary.BigEndian.PutUint32(bytes[:4], uint32(len(data)))
-	copy(bytes[4:], data)
-	return p.Send(bytes)
+	frame := make([]byte, 1+4+len(data))
+	frame[0] = IncomingMessage
+	binary.BigEndian.PutUint32(frame[1:5], uint32(len(data)))
+	copy(frame[5:], data)
+	return p.Send(frame)
+}
+
+func (p *TCPPeer) Write(data []byte) (int, error) {
+	return p.conn.Write(data)
+}
+
+func (p *TCPPeer) Read(data []byte) (int, error) {
+	return p.conn.Read(data)
 }
 
 func (t *TCPTransport) startAcceptLoop() {
